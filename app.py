@@ -1,64 +1,134 @@
-
 import streamlit as st
 import pandas as pd
+import plotly.graph_objects as go
 
-# Constants (editable defaults)
-DEFAULTS = {
-    "home_value": 500000.0,
-    "loan_amount": 300000.0,
-    "HEA_CLTV": 75.0,
-    "HEA_PremPercent": 20.0,
-    "HEA_Premium_Max": 500000.0,
-    "HEA_Premium_Min": 30000.0
-}
+# Page setup
+st.set_page_config(page_title="HEI Calculator", layout="wide")
+st.title("🏡 Home Equity Investment (HEI) Calculator")
 
-# Calculation function
-def calculate_HEA_premium(home_value, loan_amount, HEA_CLTV, HEA_PremPercent, HEA_Premium_Max, HEA_Premium_Min):
-    cltv_gap = max(0, (home_value * (HEA_CLTV / 100)) - loan_amount)
-    max_prem_by_percent = home_value * (HEA_PremPercent / 100)
-    lesser_of_gap_or_percent = min(max_prem_by_percent, cltv_gap)
-    capped_at_max = min(lesser_of_gap_or_percent, HEA_Premium_Max)
-    final_premium = 0 if capped_at_max < HEA_Premium_Min else capped_at_max
-    return round(final_premium, 2)
+st.success("✅ The latest version of the app has been loaded.")
 
-# Page settings
-st.set_page_config(page_title="HEA Premium Explorer", layout="wide")
+# --- Helper functions ---
+def parse_currency(x):
+    return float(x.replace('$', '').replace(',', '').strip())
 
-st.title("🏠 HEA Premium Explorer")
-st.markdown("Use the inputs to explore how premium eligibility is affected by different home and loan values.")
+def parse_percent(x):
+    return float(x.replace('%', '').strip()) / 100
 
-# Layout: Inputs (col1), Outputs/Charts (col2)
-col1, col2 = st.columns([1, 2])
+def parse_multiplier(x):
+    return float(x.lower().replace('x', '').strip())
 
-with col1:
-    home_value = st.number_input("Home Value ($)", format="%.2f", value=DEFAULTS["home_value"], step=1000.00)
-    loan_amount = st.number_input("Loan Amount ($)", format="%.2f", value=DEFAULTS["loan_amount"], step=1000.00)
-    HEA_CLTV = st.number_input("Max CLTV (%)", format="%.0f", value=DEFAULTS["HEA_CLTV"], step=1.0)
-    HEA_PremPercent = st.number_input("Max Premium % of Home Value", format="%.0f", value=DEFAULTS["HEA_PremPercent"], step=1.0)
-    HEA_Premium_Max = st.number_input("Max Premium ($)", format="%.2f", value=DEFAULTS["HEA_Premium_Max"], step=1000.00)
-    HEA_Premium_Min = st.number_input("Min Premium ($)", format="%.2f", value=DEFAULTS["HEA_Premium_Min"], step=1000.00)
+# --- Sidebar Inputs ---
+with st.sidebar:
+    st.header("📌 Input Parameters")
+    home_value_str = st.text_input("Home Value", "$1,000,000")
+    loan_amount_str = st.text_input("Current Loan Balance", "$300,000")
+    max_cltv_str = st.text_input("Max CLTV", "75%")
+    max_premium_percent_str = st.text_input("Max Premium % of Home Value", "20%")
+    max_premium_dollar_str = st.text_input("Max Premium ($)", "$500,000")
+    min_premium_dollar_str = st.text_input("Min Premium ($)", "$30,000")
+    appreciation_rate_str = st.text_input("Annual Appreciation", "2.00%")
+    hei_multiplier_str = st.text_input("HEI Multiplier", "2.0x")
+    investor_cap_str = st.text_input("Investor Cap", "20.00%")
 
-    calculate = st.button("💰 Calculate Premium")
+# --- Parse and Validate Inputs ---
+try:
+    home_value = parse_currency(home_value_str)
+    loan_amount = parse_currency(loan_amount_str)
+    max_cltv = parse_percent(max_cltv_str)
+    max_premium_pct = parse_percent(max_premium_percent_str)
+    max_premium_dollar = parse_currency(max_premium_dollar_str)
+    min_premium_dollar = parse_currency(min_premium_dollar_str)
+    appreciation_rate = parse_percent(appreciation_rate_str)
+    hei_multiplier = parse_multiplier(hei_multiplier_str)
+    investor_cap_rate = parse_percent(investor_cap_str)
+except ValueError:
+    st.error("⚠️ Please verify your input formats.")
+    st.stop()
 
-if calculate:
-    premium = calculate_HEA_premium(
-        home_value, loan_amount, HEA_CLTV, HEA_PremPercent, HEA_Premium_Max, HEA_Premium_Min
-    )
+# --- Premium Calculation Logic ---
+cltv_gap = max(0, (home_value * max_cltv) - loan_amount)
+max_premium_by_pct = home_value * max_premium_pct
+raw_premium = min(max_premium_by_pct, cltv_gap)
+capped_premium = min(raw_premium, max_premium_dollar)
+final_premium = 0 if capped_premium < min_premium_dollar else capped_premium
+premium_percentage_used = final_premium / home_value if home_value else 0
+investor_percentage = premium_percentage_used * hei_multiplier
 
-    # Simulated chart data: premium over range of home values
-    home_values = list(range(int(home_value * 0.8), int(home_value * 1.21), 10000))
-    premium_series = [
-        calculate_HEA_premium(hv, loan_amount, HEA_CLTV, HEA_PremPercent, HEA_Premium_Max, HEA_Premium_Min)
-        for hv in home_values
-    ]
-    df_chart = pd.DataFrame({
-        "Home Value ($)": home_values,
-        "Premium ($)": premium_series
-    })
+# --- Future Value Projections ---
+years = list(range(11))
+home_values, hei_caps, contract_values, settlement_values = [], [], [], []
 
-    with col2:
-        st.subheader("📈 Premium vs Home Value")
-        st.line_chart(df_chart.rename(columns={"Home Value ($)": "index"}).set_index("index"))
+current_home_value = home_value
+current_hei_cap = final_premium
 
-        st.subheader("💡 Results")
-        st.metric("Calculated HEA Premium", f"${premium:,.2f}")
+for year in years:
+    if year != 0:
+        current_home_value *= (1 + appreciation_rate)
+        current_hei_cap *= (1 + investor_cap_rate)
+
+    contract_value = current_home_value * investor_percentage
+    settlement_value = min(current_hei_cap, contract_value)
+
+    home_values.append(current_home_value)
+    hei_caps.append(current_hei_cap)
+    contract_values.append(contract_value)
+    settlement_values.append(settlement_value)
+
+# --- Results DataFrame ---
+df_results = pd.DataFrame({
+    "Year": years,
+    "Home Value": home_values,
+    "HEI Cap": hei_caps,
+    "Contract Value": contract_values,
+    "Settlement Value": settlement_values
+}).set_index("Year")
+
+# --- Highlight Conditional Formatting ---
+def highlight_min(row):
+    highlight = [""] * len(row)
+    if row["HEI Cap"] < row["Contract Value"]:
+        highlight[1] = "background-color: #90ee90"
+    elif row["Contract Value"] < row["HEI Cap"]:
+        highlight[2] = "background-color: #90ee90"
+    return highlight
+
+styled_df = df_results.style.format("${:,.0f}") \
+    .apply(highlight_min, axis=1) \
+    .set_table_styles([
+        {'selector': 'th, td', 'props': [('padding', '4px'), ('text-align', 'center')]},
+        {'selector': 'th.col_heading', 'props': [('width', '22%')]},
+        {'selector': 'th.row_heading', 'props': [('width', '12%')]}
+    ])
+
+# --- Display Metrics ---
+col1, col2 = st.columns(2)
+col1.metric("🏷️ Final Premium Amount", f"${final_premium:,.0f}")
+col2.metric("📈 Investor Percentage", f"{investor_percentage:.2%}")
+
+# --- Plotly Chart ---
+fig = go.Figure()
+fig.add_trace(go.Scatter(x=years, y=home_values, name="Home Value"))
+fig.add_trace(go.Scatter(x=years, y=hei_caps, name="HEI Cap"))
+fig.add_trace(go.Scatter(x=years, y=contract_values, name="Contract Value"))
+fig.add_trace(go.Scatter(x=years, y=settlement_values, name="Settlement Value", fill='tozeroy'))
+
+fig.update_layout(
+    title='HEI Values Over 10 Years',
+    xaxis_title='Year',
+    yaxis_title='Value ($)',
+    hovermode='x unified'
+)
+
+st.plotly_chart(fig, use_container_width=True)
+
+# --- Display Table ---
+st.subheader("📊 Annual HEI Breakdown")
+row_height_px = 35
+table_height = (len(df_results) + 1) * row_height_px + 10
+
+st.dataframe(
+    styled_df,
+    use_container_width=True,
+    height=table_height
+)
