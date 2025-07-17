@@ -38,7 +38,7 @@ with st.sidebar:
     appreciation_rate_str = st.text_input("Annual Appreciation", "2.00%")
 
     # Premium paid with optional override
-    premium_override_str = st.text_input("Premium Paid to Homeowner (Defaults to Max Available)", "")
+    premium_override_str = st.text_input("Premium ($) Paid to Homeowner (Defaults to Max Available)", "")
 
     # Display-only fields with clean formatting
     st.markdown("### 🔒 System Settings (Read-only)")
