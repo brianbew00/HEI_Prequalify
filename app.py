@@ -128,7 +128,7 @@ styled_df = df_results.style.format("${:,.0f}") \
 
 # --- Display Metrics ---
 col1, col2 = st.columns(2)
-col1.metric("🏷️ Final Premium Amount", f"${final_premium:,.0f}")
+col1.metric("🏷️ Premium Paid to Homeowner", f"${final_premium:,.0f}")
 col2.metric("📈 Investor Percentage", f"{investor_percentage:.2%}")
 
 # --- Plotly Chart ---
