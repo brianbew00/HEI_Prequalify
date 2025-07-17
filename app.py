@@ -18,42 +18,58 @@ def parse_percent(x):
 def parse_multiplier(x):
     return float(x.lower().replace('x', '').strip())
 
+# --- Constants ---
+default_values = {
+    "max_cltv": 0.75,
+    "max_premium_pct": 0.20,
+    "max_premium_dollar": 500000.0,
+    "min_premium_dollar": 30000.0,
+    "hei_multiplier": 2.0,
+    "investor_cap_rate": 0.20,
+}
+
 # --- Sidebar Inputs ---
 with st.sidebar:
     st.header("📌 Input Parameters")
+
+    # Editable inputs
     home_value_str = st.text_input("Home Value", "$1,000,000")
     loan_amount_str = st.text_input("Current Loan Balance", "$300,000")
-    max_cltv_str = st.text_input("Max CLTV", "75%")
-    max_premium_percent_str = st.text_input("Max Premium % of Home Value", "20%")
-    max_premium_dollar_str = st.text_input("Max Premium ($)", "$500,000")
-    min_premium_dollar_str = st.text_input("Min Premium ($)", "$30,000")
     appreciation_rate_str = st.text_input("Annual Appreciation", "2.00%")
-    hei_multiplier_str = st.text_input("HEI Multiplier", "2.0x")
-    investor_cap_str = st.text_input("Investor Cap", "20.00%")
+
+    # Premium paid with optional override
+    premium_override_str = st.text_input("Premium Paid to Homeowner (optional)", "")
+
+    # Display-only fields with grayed style
+    st.markdown("### 🔒 System Settings (Read-only)")
+    st.markdown(f"**Investor Cap**: `{default_values['investor_cap_rate']:.0%}`")
+    st.markdown(f"**Max Premium % of Home Value**: `{default_values['max_premium_pct']:.0%}`")
+    st.markdown(f"**Max CLTV**: `{default_values['max_cltv']:.0%}`")
+    st.markdown(f"**HEI Multiplier**: `{default_values['hei_multiplier']}x`")
+    st.markdown(f"**Max Premium ($)**: `${default_values['max_premium_dollar']:,.0f}`")
+    st.markdown(f"**Min Premium ($)**: `${default_values['min_premium_dollar']:,.0f}`")
 
 # --- Parse and Validate Inputs ---
 try:
     home_value = parse_currency(home_value_str)
     loan_amount = parse_currency(loan_amount_str)
-    max_cltv = parse_percent(max_cltv_str)
-    max_premium_pct = parse_percent(max_premium_percent_str)
-    max_premium_dollar = parse_currency(max_premium_dollar_str)
-    min_premium_dollar = parse_currency(min_premium_dollar_str)
     appreciation_rate = parse_percent(appreciation_rate_str)
-    hei_multiplier = parse_multiplier(hei_multiplier_str)
-    investor_cap_rate = parse_percent(investor_cap_str)
+    premium_override = parse_currency(premium_override_str) if premium_override_str else None
 except ValueError:
     st.error("⚠️ Please verify your input formats.")
     st.stop()
 
 # --- Premium Calculation Logic ---
-cltv_gap = max(0, (home_value * max_cltv) - loan_amount)
-max_premium_by_pct = home_value * max_premium_pct
+cltv_gap = max(0, (home_value * default_values["max_cltv"]) - loan_amount)
+max_premium_by_pct = home_value * default_values["max_premium_pct"]
 raw_premium = min(max_premium_by_pct, cltv_gap)
-capped_premium = min(raw_premium, max_premium_dollar)
-final_premium = 0 if capped_premium < min_premium_dollar else capped_premium
+capped_premium = min(raw_premium, default_values["max_premium_dollar"])
+calculated_premium = 0 if capped_premium < default_values["min_premium_dollar"] else capped_premium
+
+# Use override if provided
+final_premium = premium_override if premium_override is not None else calculated_premium
 premium_percentage_used = final_premium / home_value if home_value else 0
-investor_percentage = premium_percentage_used * hei_multiplier
+investor_percentage = premium_percentage_used * default_values["hei_multiplier"]
 
 # --- Future Value Projections ---
 years = list(range(11))
@@ -65,7 +81,7 @@ current_hei_cap = final_premium
 for year in years:
     if year != 0:
         current_home_value *= (1 + appreciation_rate)
-        current_hei_cap *= (1 + investor_cap_rate)
+        current_hei_cap *= (1 + default_values["investor_cap_rate"])
 
     contract_value = current_home_value * investor_percentage
     settlement_value = min(current_hei_cap, contract_value)
