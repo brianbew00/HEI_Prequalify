@@ -72,7 +72,7 @@ if premium_override is not None:
         st.warning(f"⚠️ Premium override is below the minimum (${default_values['min_premium_dollar']:,.0f}). Using minimum.")
         final_premium = default_values["min_premium_dollar"]
     elif premium_override > calculated_premium:
-        st.warning(f"⚠️ Premium override exceeds max available (${calculated_premium:,.0f}). Using default.")
+        st.warning(f"⚠️ Premium override exceeds max available (${calculated_premium:,.0f}). Using maximum.")
         final_premium = calculated_premium
     else:
         final_premium = premium_override
