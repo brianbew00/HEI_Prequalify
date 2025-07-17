@@ -40,14 +40,14 @@ with st.sidebar:
     # Premium paid with optional override
     premium_override_str = st.text_input("Premium Paid to Homeowner (Defaults to Max Available)", "")
 
-    # Display-only fields with corrected formatting
+    # Display-only fields with clean formatting
     st.markdown("### 🔒 System Settings (Read-only)")
     st.markdown(f"**Investor Cap:** {default_values['investor_cap_rate']:.0%}")
     st.markdown(f"**Max Premium % of Home Value:** {default_values['max_premium_pct']:.0%}")
     st.markdown(f"**Max CLTV:** {default_values['max_cltv']:.0%}")
-    st.markdown(f"**HEI Multiplier:** {default_values['hei_multiplier']:.1f}x")
-    st.markdown(f"**Max Premium ($):** ${default_values['max_premium_dollar']:,.0f}")
-    st.markdown(f"**Min Premium ($):** ${default_values['min_premium_dollar']:,.0f}")
+    st.markdown(f"**HEI Multiplier:** {default_values['hei_multiplier']}x")
+    st.markdown(f"**Max Premium:** ${default_values['max_premium_dollar']:,.0f}")
+    st.markdown(f"**Min Premium:** ${default_values['min_premium_dollar']:,.0f}")
 
 # --- Parse and Validate Inputs ---
 try:
@@ -69,8 +69,8 @@ calculated_premium = 0 if capped_premium < default_values["min_premium_dollar"] 
 # --- Apply Override if Valid ---
 if premium_override is not None:
     if premium_override < default_values["min_premium_dollar"]:
-        st.warning(f"⚠️ Premium override is below the minimum of ${default_values['min_premium_dollar']:,.0f}. Using default.")
-        final_premium = calculated_premium
+        st.warning(f"⚠️ Premium override is below the minimum (${default_values['min_premium_dollar']:,.0f}). Using minimum.")
+        final_premium = default_values["min_premium_dollar"]
     elif premium_override > calculated_premium:
         st.warning(f"⚠️ Premium override exceeds max available (${calculated_premium:,.0f}). Using default.")
         final_premium = calculated_premium
